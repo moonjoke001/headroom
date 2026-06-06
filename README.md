@@ -273,11 +273,11 @@ Headroom runs **locally**, covers **every** content type, works with every major
 
 ## Using Third-Party Anthropic API Proxies
 
-If you use a third-party Anthropic API proxy instead of `https://api.anthropic.com`, you have two options:
+If you use a third-party Anthropic API proxy instead of `https://api.anthropic.com`, here are your options:
 
 ### Option 1: Skip Headroom (Simplest)
 
-Just point Claude Code directly at your proxy — no headroom needed:
+Point Claude Code directly at your proxy — no headroom needed:
 
 ```bash
 # ~/.bashrc
@@ -285,16 +285,59 @@ export ANTHROPIC_BASE_URL=https://your-proxy.com/anthropic
 export ANTHROPIC_AUTH_TOKEN=your-api-token
 ```
 
-Then run `claude` normally. No proxy, no compression, but zero configuration issues.
+Then run `claude` normally. Zero configuration issues, but no token compression.
 
-### Option 2: With Headroom Compression
+### Option 2: Docker Compose (Recommended for Headroom Compression)
 
-If you want headroom's token compression, use `headroom wrap`:
+Run headroom proxy in Docker with persistent restart:
+
+**Step 1: Create `docker-compose.headroom.yml`**
+
+```yaml
+services:
+  headroom-proxy:
+    image: ghcr.io/chopratejas/headroom:latest
+    container_name: headroom-proxy
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8787:8787"
+    environment:
+      - ANTHROPIC_TARGET_API_URL=https://your-proxy.com/anthropic
+    volumes:
+      - headroom-data:/root/.headroom
+    command:
+      - "--mode=token"
+      - "--backend=anthropic"
+      - "--anthropic-api-url=https://your-proxy.com/anthropic"
+
+volumes:
+  headroom-data:
+```
+
+**Step 2: Start the proxy**
+
+```bash
+docker compose -f docker-compose.headroom.yml up -d
+```
+
+**Step 3: Add alias to `~/.bashrc`**
+
+```bash
+alias claude='ANTHROPIC_BASE_URL=http://127.0.0.1:8787 claude --dangerously-skip-permissions'
+```
+
+**Step 4: Use Claude Code**
+
+```bash
+claude          # Normal mode
+claude agents   # Background agent mode
+```
+
+### Option 3: CLI Wrap (No Docker)
 
 ```bash
 # ~/.bashrc
 export ANTHROPIC_TARGET_API_URL=https://your-proxy.com/anthropic
-export ANTHROPIC_AUTH_TOKEN=your-api-token
 
 # Launch
 headroom wrap claude

@@ -271,46 +271,36 @@ Headroom runs **locally**, covers **every** content type, works with every major
 
 > **Attribution.** Headroom ships with the excellent [RTK](https://github.com/rtk-ai/rtk) binary for shell-output rewriting — `git show --short`, scoped `ls`, summarized installers. Huge thanks to the RTK team; their tool is a first-class part of our stack, and Headroom compresses everything downstream of it. Headroom can also use [lean-ctx](https://github.com/yvgude/lean-ctx) as the selected CLI context tool; set `HEADROOM_CONTEXT_TOOL=lean-ctx` before running `headroom wrap ...`.
 
-## Using Headroom with Third-Party Anthropic API Proxies
+## Using Third-Party Anthropic API Proxies
 
-If you use a third-party Anthropic API proxy (e.g., `https://your-proxy.com/anthropic`) instead of the default `https://api.anthropic.com`, you need to configure the upstream URL.
+If you use a third-party Anthropic API proxy instead of `https://api.anthropic.com`, you have two options:
 
-### Recommended: `headroom wrap claude`
+### Option 1: Skip Headroom (Simplest)
 
-The simplest approach is to use `headroom wrap claude`, which handles everything automatically:
-
-**Step 1: Set the upstream API URL in `~/.bashrc`**
+Just point Claude Code directly at your proxy — no headroom needed:
 
 ```bash
+# ~/.bashrc
+export ANTHROPIC_BASE_URL=https://your-proxy.com/anthropic
+export ANTHROPIC_AUTH_TOKEN=your-api-token
+```
+
+Then run `claude` normally. No proxy, no compression, but zero configuration issues.
+
+### Option 2: With Headroom Compression
+
+If you want headroom's token compression, use `headroom wrap`:
+
+```bash
+# ~/.bashrc
 export ANTHROPIC_TARGET_API_URL=https://your-proxy.com/anthropic
+export ANTHROPIC_AUTH_TOKEN=your-api-token
+
+# Launch
+headroom wrap claude
 ```
 
-**Step 2: Launch Claude Code through Headroom**
-
-```bash
-headroom wrap claude --memory
-```
-
-That's it! The proxy starts automatically, routes traffic through Headroom for compression, and forwards to your custom upstream API.
-
-### Why `wrap` over `init`?
-
-| Approach | Behavior |
-|----------|----------|
-| `headroom wrap claude` | ✅ Temporary — no permanent changes to `settings.local.json` |
-| `headroom init claude` | ❌ Permanently modifies `settings.local.json` with hooks that re-inject `ANTHROPIC_BASE_URL` on every startup |
-
-### Manual Setup (Alternative)
-
-If you prefer manual control:
-
-```bash
-# Terminal 1: Start the proxy
-headroom proxy --anthropic-api-url https://your-proxy.com/anthropic
-
-# Terminal 2: Launch Claude Code
-ANTHROPIC_BASE_URL=http://localhost:8787 claude
-```
+> **Note:** Avoid `headroom init claude` — it permanently modifies `settings.local.json` with hooks that re-inject `ANTHROPIC_BASE_URL` on every startup, which can cause 401 errors with third-party proxies.
 
 ### Supported API URL Overrides
 
@@ -320,18 +310,6 @@ ANTHROPIC_BASE_URL=http://localhost:8787 claude
 | OpenAI | `--openai-api-url` | `OPENAI_TARGET_API_URL` |
 | Gemini | `--gemini-api-url` | `GEMINI_TARGET_API_URL` |
 | Cloud Code | `--cloudcode-api-url` | `CLOUDCODE_TARGET_API_URL` |
-
-### Verify Configuration
-
-```bash
-# Check proxy is healthy
-curl -s http://127.0.0.1:8787/readyz
-
-# Check routing points to your upstream
-headroom proxy --help | grep "anthropic-api-url" -A 1
-```
-
-> **Note:** Replace `https://your-proxy.com/anthropic` with your actual upstream API URL.
 
 ## Contributing
 

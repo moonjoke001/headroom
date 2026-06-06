@@ -271,6 +271,67 @@ Headroom runs **locally**, covers **every** content type, works with every major
 
 > **Attribution.** Headroom ships with the excellent [RTK](https://github.com/rtk-ai/rtk) binary for shell-output rewriting — `git show --short`, scoped `ls`, summarized installers. Huge thanks to the RTK team; their tool is a first-class part of our stack, and Headroom compresses everything downstream of it. Headroom can also use [lean-ctx](https://github.com/yvgude/lean-ctx) as the selected CLI context tool; set `HEADROOM_CONTEXT_TOOL=lean-ctx` before running `headroom wrap ...`.
 
+## Troubleshooting: Using Headroom with Third-Party Anthropic API Proxies
+
+If you use a third-party Anthropic API proxy (e.g., `https://your-proxy.com/anthropic`) instead of the default `https://api.anthropic.com`, you may encounter **401 Unauthorized** errors when running `headroom init claude`.
+
+### Problem
+
+`headroom init claude` sets `ANTHROPIC_BASE_URL=http://127.0.0.1:8787` in Claude Code's `settings.local.json`, routing all requests through the Headroom proxy. However, the proxy defaults to forwarding requests to `https://api.anthropic.com`. If your API token is for a different upstream server, authentication fails with 401.
+
+### Solution
+
+Configure the Headroom proxy to forward requests to your actual upstream API:
+
+**Step 1: Add environment variable to `~/.bashrc`**
+
+```bash
+export ANTHROPIC_TARGET_API_URL=https://your-proxy.com/anthropic
+```
+
+**Step 2: Update Headroom manifest files**
+
+Edit all manifest files in `~/.headroom/deploy/*/manifest.json`:
+
+```json
+{
+  "base_env": {
+    "ANTHROPIC_TARGET_API_URL": "https://your-proxy.com/anthropic"
+  },
+  "proxy_args": [
+    "--host", "127.0.0.1",
+    "--port", "8787",
+    "--mode", "token",
+    "--backend", "anthropic",
+    "--anthropic-api-url", "https://your-proxy.com/anthropic"
+  ]
+}
+```
+
+**Step 3: Restart Headroom proxy**
+
+```bash
+pkill -f "headroom.*proxy"
+# The proxy will auto-restart via SessionStart hook
+```
+
+**Step 4: Verify**
+
+```bash
+# Check proxy is healthy
+curl -s http://127.0.0.1:8787/readyz
+
+# Check routing points to your upstream
+cat ~/.headroom/deploy/*/runner.log | grep "Routing:" -A 3
+```
+
+You should see:
+```
+/v1/messages → https://your-proxy.com/anthropic
+```
+
+> **Note:** Replace `https://your-proxy.com/anthropic` with your actual upstream API URL. The `ANTHROPIC_TARGET_API_URL` environment variable and `--anthropic-api-url` CLI flag both configure the upstream target.
+
 ## Contributing
 
 ```bash
